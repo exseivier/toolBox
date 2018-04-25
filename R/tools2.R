@@ -38,10 +38,12 @@ setMethod("create.intersectIO", signature("character", "character", "character")
 				genes <- c(genes, results[[i]][[family]][[3]])
 			}
 			genes <- sort(genes)
-			genes <- genes[duplicated(genes)]
-			genes <- sort(genes)
-			genes <- genes[duplicated(genes)]
-			genes <- unique(genes)
+#			genes <- genes[duplicated(genes)]
+#			genes <- sort(genes)
+#			genes <- genes[duplicated(genes)]
+#			genes <- unique(genes)
+			genes <- eliminateHeavyDuplicates(genes, length(results))
+			genes <- genes[duplicatedWithMoreThan(genes, length(results)-1)]
 			results[["full_intersection"]][[family]] <- genes
 		}
 		results

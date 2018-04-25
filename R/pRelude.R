@@ -4,6 +4,43 @@ library(S4Vectors)
 
 #	METHODS
 
+setGeneric("selectTargets", function(paths, percentage) standardGeneric("selectTargets"))
+setMethod("selectTargets", signature("character", "numeric"),
+	function(paths, percentage) {
+		result <- SimpleList()
+		for(path in paths) {
+			result[[basename(path)]] <- SimpleList()
+			lof <- list.files(path=path, pattern="\\.data$")
+			min <- 0
+			max <- length(lof)
+			pb <- txtProgressBar(min=min, max=max, style=3)
+			for(f in lof) {
+				result[[basename(path)]][[f]] <- SimpleList()
+				table <- read.delim(paste(path, f, sep=""), header=FALSE, sep="\t", as.is=TRUE)
+				gene_tags <- table[,1]
+				gene_tags <- gene_tags[grepl("\\.[[:alnum:]]$", gene_tags)]
+				gene_tags <- gsub(".*\\.", "", gene_tags)
+				gene_tags <- names(sort(table(gene_tags), decreasing=TRUE))
+				for(tag in gene_tags){
+					sub_table <- table[grepl(paste("\\.", tag, "$", sep=""), table[,1]),]
+					sub_table <- sub_table[order(sub_table[,2], decreasing=FALSE),]
+					len_subtable <- length(sub_table[,1])
+					sub_table <- sub_table[,1]
+					sub_table <- sub_table[1:round(len_subtable*(percentage/100))]
+					result[[basename(path)]][[f]][[tag]] <- sub_table
+				}
+				min <- min + 1
+				setTxtProgressBar(pb, min)
+			}
+		}
+		result
+})
+
+##################################
+##################################
+##################################
+
+
 setGeneric("getLists", function(total_genes, genes, stage, homoeologos_fasta) standardGeneric("getLists"))
 setMethod("getLists", signature("character", "character", "character", "character"),
 	function(total_genes, genes, stage, homoeologos_fasta) {
@@ -21,8 +58,12 @@ setMethod("getLists", signature("character", "character", "character", "characte
 		URH <- c()
 		NRH <- c()
 		SIN <- c()
-		tgenes <- total_genes[grepl("\\.[LS]$", total_genes)]
-		tgenes <- gsub("\\.[LS]$", "", tgenes)
+		gene_tags <- gsub(".*\\.", "", total_genes)
+		gene_tags <- rownames(sort(table(gene_tags), decreasing=TRUE))
+		gene_tags <- gene_tags[1:2]
+		gene_tags <- sort(gene_tags)
+		tgenes <- total_genes[grepl(paste("\\.[", gene_tags[1], gene_tags[2], "]$", sep=""), total_genes)]
+		tgenes <- gsub(paste("\\.[", gene_tags[1], gene_tags[2], "]$", sep=""), "", tgenes)
 		tgenes <- sort(tgenes)
 		tgenes <- eliminateHeavyDuplicates(tgenes, 2)
 		homoeologos <- tgenes[duplicated(tgenes)]
@@ -31,8 +72,8 @@ setMethod("getLists", signature("character", "character", "character", "characte
 		for (f in lof){
 			tmp_fu <- read.delim(paste(genes, f, sep=""), header=FALSE, sep="\t", as.is=TRUE)
 			tmp_fu <- tmp_fu[,1]
-			tmp_fu <- tmp_fu[grepl("\\.[LS]$", tmp_fu)]
-			tmp_fu <- gsub("\\.[LS]$", "", tmp_fu)
+			tmp_fu <- tmp_fu[grepl(paste("\\.[", gene_tags[1], gene_tags[2], "]$", sep=""), tmp_fu)]
+			tmp_fu <- gsub(paste("\\.[", gene_tags[1], gene_tags[2], "]$", sep=""), "", tmp_fu)
 			tmp_fu <- sort(tmp_fu)
 			tmp_fu <- eliminateHeavyDuplicates(tmp_fu, 2)
 			tmp_CRH <- tmp_fu[duplicated(tmp_fu)]
@@ -59,7 +100,7 @@ setMethod("getLists", signature("character", "character", "character", "characte
 			items <- c(items, item[1])
 		}
 		homoeogenesWUTRs <- items
-		homoeogenesWUTRs <- gsub("\\.[LS]$", "", homoeogenesWUTRs)
+		homoeogenesWUTRs <- gsub(paste("\\.[", gene_tags[1], gene_tags[2], "]$", sep=""), "", homoeogenesWUTRs)
 		homoeogenesWUTRs <- eliminateHeavyDuplicates(homoeogenesWUTRs, 2)
 		homoeogenesWUTRs <- homoeogenesWUTRs[duplicated(homoeogenesWUTRs)]
 		NRH <- NRH[NRH %in% homoeogenesWUTRs]
@@ -75,7 +116,7 @@ setMethod("getLists", signature("character", "character", "character", "characte
 		list[["tCRH"]] <- tCRH
 		list[["tURH"]] <- tURH
 		list[["tSIN"]] <- tSIN
-		print("debbuging1")
+		print("debbuging2")
 		list
 })
 
