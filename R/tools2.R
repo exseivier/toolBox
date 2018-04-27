@@ -97,3 +97,5 @@ setMethod("genrich", signature("SimpleList", "SimpleList", "character"),
 		rownames(data) <- names(pvalues)
 		data
 })
+
+

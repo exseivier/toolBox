@@ -4,9 +4,52 @@ library(S4Vectors)
 
 #	METHODS
 
-setGeneric("selectTargets", function(paths, percentage) standardGeneric("selectTargets"))
-setMethod("selectTargets", signature("character", "numeric"),
-	function(paths, percentage) {
+setGeneric("getLists", function(fasta) standardGeneric("getLists"))
+setMethod("getLists", signature("character"),
+	function(fasta) {
+		dna <- readDNAStringSet(fasta, format="fasta")
+		genes <- names(dna)
+		# /* 
+		#    Fasta sequences were removed
+		#    to make memory storage efficient.
+		# */
+		rm(dna)
+		# /* extractTags comes from helpe.R
+		tags <- extractTags(genes)
+		# /*
+		#    Calculating homologues and orthlogues genes
+		# */
+		genes <- unlist(lapply(genes, function(x) strsplit(x, split="\\|")[[1]][1]))
+		genes <- genes[grepl("\\.[[:alpha:]]$", genes)]
+		alltags <- gsub(".*\\.", "", genes)
+		homologs <- SimpleList()
+		homologs@listData <- as.list(table(alltags))
+		homologs <- combinations(tags, genes, homologs)
+		homologs
+})
+
+setGeneric("selectTargets", function(paths, percentage, notags) standardGeneric("selectTargets"))
+setMethod("selectTargets", signature("character", "numeric", "numeric"),
+	function(paths, percentage, notags) {
+		# /* paths.
+		#    It is a character vector with the complete paths were *.data files are.
+		# */
+		# /* percentage.
+		#    It is a numeric vector of length 1 which tells the percentage of
+		#    the top genes will be selected.
+		# */
+		# /* notags
+		#    It is a numeric vector of length 1 which tells the number of tags included in tar object
+		# */
+		# /* What it does.
+		#    Takes *.data files for each microRNA family.
+		#    Select genes by tags.
+		#    Sort them by context score from negative to positive.
+		#    Takes the $(pecrentage)% of top genes for each subset of genes.
+		#    Calculates the vector length of each set of genes, and the total genes
+		#    for each tag.
+		#    Finally, all results are placed in a SimpleList object.
+		# */
 		result <- SimpleList()
 		for(path in paths) {
 			result[[basename(path)]] <- SimpleList()
@@ -33,6 +76,7 @@ setMethod("selectTargets", signature("character", "numeric"),
 				setTxtProgressBar(pb, min)
 			}
 		}
+		result <- intersect.targets(tar=result, notags=notags)
 		result
 })
 
@@ -41,8 +85,8 @@ setMethod("selectTargets", signature("character", "numeric"),
 ##################################
 
 
-setGeneric("getLists", function(total_genes, genes, stage, homoeologos_fasta) standardGeneric("getLists"))
-setMethod("getLists", signature("character", "character", "character", "character"),
+setGeneric("getLists.deprecated", function(total_genes, genes, stage, homoeologos_fasta) standardGeneric("getLists.deprecated"))
+setMethod("getLists.deprecated", signature("character", "character", "character", "character"),
 	function(total_genes, genes, stage, homoeologos_fasta) {
 		list <- SimpleList()
 		if (stage == "fu"){
