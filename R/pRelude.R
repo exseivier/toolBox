@@ -4,6 +4,56 @@ library(S4Vectors)
 
 #	METHODS
 
+setGeneric("discriminateTargets", function(tar) standarGeneric("discriminateTargets"))
+setMethod("discriminateTargets", signature("SimpleList"),
+	function(tar) {
+		# /* 
+		#    It will generates the list of genes that are in common in 2
+		#    datasets. Dataset comes from targets object created by selectTargets
+		#    function
+		# */
+		# /* tar
+		#    Object created by selectTargets function implemented in pRelude.R
+		# */
+		tags <- colnames(tar[[1]][["sizes_table"]])[-length(colnames(tar[[1]][["sizes_table"]]))]
+		# /*
+		#    How many combinations of length 2 do you can do with length(tags) elements?
+		# */
+		combinations <- comb(2, length(tags))
+		results <- SimpleList()
+		# // Iterating over the total number of posible combinations of length 2
+		for(i in 1:length(combinations[,1])){
+			paths <- names(tar)
+		# // Iterating over paths stored in tar
+			for(p in paths) {
+				files <- names(tar[[p]])[-length(names(tar[[p]]))]
+				genes_basket <- c()
+				out_tag <- paste(tags[combinations[i,1]], tags[combinations[i,2]], sep="")
+		# // Iterating over files for ever path sotred in tar
+				for(f in files) {
+					tag <- tags[combinations[i,1]]
+					genes <- tar[[p]][[f]][[tag]]
+					tag <- tags[combinations[i,2]]
+					genes <- c(genes, tar[[p]][[f]][[tag]])
+					genes <- eliminateHeavyDuplicates(names=genes, times=2)
+					genes <- gsub("\\.[[:alpha:]]$", "", genes)
+					genes <- genes[duplicatedWithMoreThan(names=genes, times=1, drop=FALSE)]
+					genes <- unique(sort(genes))
+					genes_basket <- c(genes_basket, genes)
+				}
+				results[[out_tag]] <- t(table(genes_basket))
+				results[[paste(out_tag, "_CRgenes", sep="")]] <- unique(sort(genes_basket))
+				# /* TODO LIST
+				#    Select the Uncoupled regulated genes from L, S and X
+				#    in combination of length 2.
+				#    Select the coupled and uncoupled regulated genes for
+				#    the LSX set
+				# */
+			}
+		}
+		results
+})
+
 setGeneric("getLists", function(fasta) standardGeneric("getLists"))
 setMethod("getLists", signature("character"),
 	function(fasta) {
@@ -23,8 +73,11 @@ setMethod("getLists", signature("character"),
 		genes <- genes[grepl("\\.[[:alpha:]]$", genes)]
 		alltags <- gsub(".*\\.", "", genes)
 		homologs <- SimpleList()
-		homologs@listData <- as.list(table(alltags))
+		homologs@listData <- as.list(table(alltags)) # */* Select total L, S and X genes to select singletons genes.
 		homologs <- combinations(tags, genes, homologs)
+		# /*
+		#    select total genes total genes and singletons
+		# */
 		homologs
 })
 
@@ -164,4 +217,55 @@ setMethod("getLists.deprecated", signature("character", "character", "character"
 		list
 })
 
+setGeneric("loadTargets", function(path, lof, collapse=TRUE) standarGeneric("loadTargets"))
+setMethod("loadTargets", signature("character", "character"),
+	# /*
+	#    Load the names of the target genes from each *.data.fu or *.data.fd file.
+	#    Those files are the output of the target scan analysis and *.fu are the
+	#    best prediction targets and *.fd are the worst prediction targets.
+	# */
+	# /* path
+	#    Character vector with the name of the path where the *.data.f* are.
+	# */
+	# /* lof
+	#    Character vector with the names of the *.data.f* files
+	# */
+	# /* collapse
+	#    Logical vector. If TRUE gene names will be filtered and untagged, sorted
+	#    and unique-ed
+	function(path, lof, collapse=TRUE) {
+		if(length(path) == 0 | length(lof) == 0){
+			stop("Path or list of files were not specified")
+		}
+		results <- SimpleList()
+		for (f in lof) {
+			tmp_data <- read.delim(paste(path, f, sep=""), header=FALSE, sep="\t", as.is=TRUE)[,1]
+			tmp_data <- gsub("\\|.*$", "", tmp_data)
+			if (collapse) {
+				tmp_data <- gsub("\\.[LSPX]$", "", tmp_data)
+				tmp_data <- tmp_data[tmp_data %!in% "unnamed"]
+				tmp_data <- unique(sort(tmp_data))
+			}
+			tmp_data <- tmp_data[tmp_data %!in% "unnamed"]
+					results[[ strsplit(f, split="\\.")[[1]][1]  ]] <- tmp_data
+		}
+		results
+	
+})
 
+setGeneric("filter.bad.targs", function(targs, badtargs) standarGeneric("filter.bad.targs"))
+setMethod("filter.bad.targs", signature("SimpleList", "SimpleList"),
+	# /*
+	#
+	# */
+	function(targs, badtargs) {
+		realbadtargs <- SimpleList()
+		alltargs <- c()
+		for (name in names(targs)) {
+			alltargs <- c(alltargs, targs[[name]])
+		}
+		for (name in names(badtargs)) {
+			realbadtargs[[name]] <- badtargs[[name]][badtargs[[name]] %!in% alltargs]
+		}
+		realbadtargs
+})
