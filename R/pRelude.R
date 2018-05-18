@@ -217,6 +217,32 @@ setMethod("getLists.deprecated", signature("character", "character", "character"
 		list
 })
 
+setGeneric("loadTSresults", function(path, glist) standarGeneric("loadTSresults"))
+setMethod("loadTSresults", signature("character", "SimpleList"),
+	# /* what it does
+	#    Load ts-tools results. Takes the *.data files and stores the tables in a SimpleList
+	#    object
+	# */
+	# /* path
+	#    Character vector with the name of the path where the *.data files are
+	# */
+	# /* glist
+	#    Glist object created by getLists.deprecated function where positions 2 are for homeologs
+	# */
+	function(path, glist) {
+		lof <- list.files(path, pattern="\\.data$")
+		print("Loaded files...")
+		print(lof)
+		tsresults <- SimpleList()
+		for (f in lof) {
+			data <- read.delim(paste(path, f, sep=""), header=FALSE, as.is=TRUE, sep="\t")
+			t <- with(data, {Homeo <- ifelse(gsub("\\.[LS]$", "", V1) %in% gL.fu[[2]], TRUE, FALSE)})
+			data <- cbind(data, Homeo=t)
+			tsresults[[gsub("\\.data$", "", f)]] <- data
+		}
+		tsresults
+})
+
 setGeneric("loadTargets", function(path, lof, collapse=TRUE) standarGeneric("loadTargets"))
 setMethod("loadTargets", signature("character", "character"),
 	# /*
@@ -256,7 +282,14 @@ setMethod("loadTargets", signature("character", "character"),
 setGeneric("filter.bad.targs", function(targs, badtargs) standarGeneric("filter.bad.targs"))
 setMethod("filter.bad.targs", signature("SimpleList", "SimpleList"),
 	# /*
-	#
+	#    Takes good targets and the bad predicted targets and eliminates the bad predicted
+	#    targets presented in good targets list.
+	# */
+	# /* targs
+	#    SimpleList with the good predicted targets separated by microRNA family
+	# */
+	# /* badtargs
+	#    SimpleList with the bad predicted targets separated by microRNA family
 	# */
 	function(targs, badtargs) {
 		realbadtargs <- SimpleList()
